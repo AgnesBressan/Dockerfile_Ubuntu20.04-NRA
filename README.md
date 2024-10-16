@@ -1,6 +1,6 @@
 # Workspace NRA - Docker Setup
 
-Este repositório contém um Dockerfile para configurar um ambiente de desenvolvimento completo para o Workspace do NRA (Navegação Robótica Autônoma). A imagem gerada inclui todas as dependências e instâncias necessárias para iniciar e trabalhar no ambiente de desenvolvimento do NRA.
+Este repositório contém um Dockerfile para configurar um ambiente de desenvolvimento completo para o Workspace do NRA (Núcleo Robótica Aérea). A imagem gerada inclui todas as dependências e instâncias necessárias para iniciar e trabalhar no ambiente de desenvolvimento do NRA.
 
 ## Requisitos
 
