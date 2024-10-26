@@ -110,7 +110,7 @@ Adicione as seguintes linhas ao seu Dockerfile para configurar os modelos e scri
         && bash setup.sh \
         && cd /root/catkin_ws
 
-## Autor
+## Autores
 
 **[Agnes Bressan de Almeida](https://github.com/AgnesBressan)**  
 **[Marco Tayar](https://github.com/MarcoTayar)**
