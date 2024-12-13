@@ -13,9 +13,28 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     gnupg2 \
     build-essential \
-    python3-pip
+    python3-pip \
+    software-properties-common \
+    && apt-get clean
 
-RUN apt-get upgrade
+RUN apt-get update && apt-get upgrade -y && apt-get clean
+
+# Adicionar repositório de drivers da NVIDIA
+RUN add-apt-repository ppa:graphics-drivers/ppa && apt-get update
+
+# Instalar driver NVIDIA (ajuste a versão se necessário)
+# Para RTX 2000 Ada (por exemplo, RTX A2000), o driver mais recente deve suportar
+RUN apt-get install -y nvidia-driver-535 && apt-get clean
+
+# Instalar chaves e repositório do CUDA
+# Ajuste a versão do CUDA conforme necessário
+RUN apt-get update && apt-get install -y gnupg && apt-get clean
+RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin \
+    && mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+RUN wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda-repo-ubuntu2004-11-8-local_11.8.0-1_amd64.deb
+RUN dpkg -i cuda-repo-ubuntu2004-11-8-local_11.8.0-1_amd64.deb
+RUN cp /var/cuda-repo-ubuntu2004-11-8-local/cuda-*-keyring.gpg /usr/share/keyrings/
+RUN apt-get update && apt-get -y install cuda && apt-get clean
 
 # Adicionar o repositório do ROS Noetic e a chave GPG
 RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' \
@@ -38,6 +57,9 @@ RUN apt-get update && apt-get install -y \
     python3-wstool \
     libopencv-dev \
     python3-opencv \
+    bash-completion \
+    nano \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar vcstool via pip
@@ -46,7 +68,7 @@ RUN pip3 install vcstool
 # Criar e configurar o workspace do Catkin
 RUN mkdir -p ~/catkin_ws/src && cd ~/catkin_ws/ && /bin/bash -c "source /opt/ros/noetic/setup.bash; catkin_make"
 
-# Testar a conexão SSH
+# Testar a conexão SSH (não falhar se não tiver chave configurada)
 RUN ssh -T git@github.com || true
 
 # Clonar o repositório do Swarm in Blocks
@@ -55,16 +77,9 @@ RUN cd ~/catkin_ws/src \
 
 # Clonar os repositórios um por vez
 RUN cd ~/catkin_ws/src \
-    && git clone --depth 1 https://github.com/CopterExpress/clover.git
-RUN cd ~/catkin_ws/src \
-    && git clone --depth 1 https://github.com/CopterExpress/ros_led.git
-RUN cd ~/catkin_ws/src \
+    && git clone --depth 1 https://github.com/CopterExpress/clover.git \
+    && git clone --depth 1 https://github.com/CopterExpress/ros_led.git \
     && git clone --depth 1 https://github.com/ethz-asl/mav_comm.git
-
-# Instalar o pacote de cores para bash
-RUN apt-get update && apt-get install -y \
-    bash-completion \
-    nano
 
 # Habilitar cores no bash e no comando ls
 RUN echo "export LS_OPTIONS='--color=auto'" >> ~/.bashrc \
@@ -74,7 +89,7 @@ RUN echo "export LS_OPTIONS='--color=auto'" >> ~/.bashrc \
     && echo "alias l='ls \$LS_OPTIONS -lA'" >> ~/.bashrc \
     && echo "PS1='\\[\\033[01;34m\\]\\u@\\h \\[\\033[01;32m\\]\\w\\[\\033[00m\\]\\$ '" >> ~/.bashrc
 
-# Instalar dependências Python adicionais
+# Instalar dependências Python adicionais para o Clover
 RUN sudo /usr/bin/python3 -m pip install -r ~/catkin_ws/src/clover/clover/requirements.txt
 
 # Clonar os fontes do PX4 e configurar links simbólicos
@@ -93,24 +108,29 @@ RUN pip3 install --user toml
 RUN ln -s ~/catkin_ws/src/clover/clover_simulation/airframes/* ~/PX4-Autopilot/ROMFS/px4fmu_common/init.d-posix/airframes/
 
 # Instalar os datasets do geographiclib necessários para o Mavros
-RUN sudo apt-get install -y ros-noetic-mavros ros-noetic-mavros-extras ros-noetic-mavros-msgs
+RUN apt-get update && apt-get install -y ros-noetic-mavros ros-noetic-mavros-extras ros-noetic-mavros-msgs && apt-get clean
 RUN wget https://raw.githubusercontent.com/mavlink/mavros/master/mavros/scripts/install_geographiclib_datasets.sh \
     && sudo bash ./install_geographiclib_datasets.sh \
     && mkdir -p /usr/share/GeographicLib/geoids/
-    
+
 # Instalar pygeodesy
 RUN pip3 install pygeodesy
 
-RUN pip uninstall opencv-contrib-python opencv-python
-RUN pip install opencv-contrib-python==4.6.0.66
-RUN pip install colorful
-RUN pip install pyzbar
-    
+# Ajustar OpenCV
+RUN pip3 uninstall -y opencv-contrib-python opencv-python
+RUN pip3 install opencv-contrib-python==4.6.0.66
+RUN pip3 install colorful
+RUN pip3 install pyzbar
+
 # Compilar o workspace
-RUN cd ~/catkin_ws && /bin/bash -c "source ~/catkin_ws/devel/setup.bash; catkin_make"
+RUN cd ~/catkin_ws && /bin/bash -c "source /opt/ros/noetic/setup.bash; catkin_make"
 
 # Configurar ambiente ROS
 RUN echo "source ~/catkin_ws/devel/setup.bash" >> ~/.bashrc
+
+# CUDA no PATH
+ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 
 # Comando padrão
 CMD ["/bin/bash"]
